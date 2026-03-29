@@ -15,5 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Use shell form so $PORT is expanded at runtime from Railway's environment
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Create startup script
+RUN echo '#!/bin/bash\nset -e\necho "Running Alembic migrations..."\nalembic upgrade head\necho "Starting Uvicorn on port $PORT"\nexec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}' > /app/start.sh && chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]
