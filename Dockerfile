@@ -15,7 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create startup script
-RUN echo '#!/bin/bash\nset -e\necho "Running Alembic migrations..."\nalembic upgrade head\necho "Starting Uvicorn on port $PORT"\nexec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}' > /app/start.sh && chmod +x /app/start.sh
+# Make startup script executable
+RUN chmod +x /app/start.sh
 
-CMD ["/app/start.sh"]
+EXPOSE 8000
+
+CMD ["/bin/bash", "/app/start.sh"]
