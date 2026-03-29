@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class PainLogCreate(BaseModel):
@@ -9,7 +9,7 @@ class PainLogCreate(BaseModel):
     duration_hours: Optional[float] = Field(None, ge=0)
     symptoms: Optional[List[str]] = []
     notes: Optional[str] = None
-    timestamp: datetime
+    timestamp: Optional[datetime] = None  # defaults to now() on server if not provided
 
 
 class PainLogResponse(BaseModel):

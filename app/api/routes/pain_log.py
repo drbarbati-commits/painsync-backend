@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime, timezone
 import math
 
 from app.core.database import get_db
@@ -25,7 +26,7 @@ def create_pain_log(
         duration_hours=payload.duration_hours,
         symptoms=payload.symptoms or [],
         notes=payload.notes,
-        timestamp=payload.timestamp,
+        timestamp=payload.timestamp or datetime.now(timezone.utc),
     )
     db.add(log)
     db.commit()
