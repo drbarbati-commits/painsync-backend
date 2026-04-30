@@ -13,7 +13,7 @@ from app.schemas.chat import (
     ChatSessionResponse,
     ChatSessionSummary,
 )
-from app.services.claude_service import chat_with_claude
+from app.services.claude_service import chat_with_ai
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -108,23 +108,36 @@ def send_message(
     db.commit()
     db.refresh(user_msg)
 
-    # Build conversation history for Claude
-    history = db.query(ChatMessage).filter(
-        ChatMessage.session_id == session_id
-    ).order_by(ChatMessage.created_at.asc()).all()
-
+    # Build conversation history
+    history = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at.asc())
+        .all()
+    )
     messages = [{"role": m.role.value, "content": m.content} for m in history]
 
-    # Build user context
-    user_context = f"User name: {current_user.name}"
+    # Build personalised system context
+    user_context_parts = [f"Patient name: {current_user.name}"]
     if current_user.age:
-        user_context += f", Age: {current_user.age}"
+        user_context_parts.append(f"Age: {current_user.age}")
+    if current_user.gender:
+        user_context_parts.append(f"Gender: {current_user.gender}")
     if current_user.medical_history:
-        user_context += f", Medical history: {current_user.medical_history}"
+        user_context_parts.append(f"Medical history: {current_user.medical_history}")
+    user_context = ". ".join(user_context_parts) + "."
+
+    system_override = (
+        "You are PainSync AI, an empathetic chronic pain management assistant. "
+        "Be warm, supportive, and medically accurate. Never diagnose or prescribe. "
+        "Always recommend consulting a healthcare professional for medical decisions. "
+        "If the user describes emergency symptoms, advise calling emergency services immediately. "
+        f"Patient context: {user_context}"
+    )
 
     # Get AI response
     try:
-        ai_response = chat_with_claude(messages, user_context)
+        ai_response = chat_with_ai(messages, system=system_override)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

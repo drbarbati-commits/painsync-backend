@@ -7,7 +7,7 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.triage import TriageAssessment, UrgencyLevel
 from app.schemas.triage import TriageRequest, TriageResponse
-from app.services.claude_service import triage_with_claude
+from app.services.triage_service import triage_with_ai
 
 router = APIRouter(prefix="/triage", tags=["Triage"])
 
@@ -27,11 +27,11 @@ def create_triage(
     }
 
     try:
-        result = triage_with_claude(pain_data)
+        result = triage_with_ai(pain_data)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI triage service temporarily unavailable: {str(e)}",
+            detail="AI triage service temporarily unavailable.",
         )
 
     urgency_str = result.get("urgency", "routine").lower()

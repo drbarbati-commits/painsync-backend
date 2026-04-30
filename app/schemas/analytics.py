@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 
 class TrendDataPoint(BaseModel):
@@ -20,3 +20,9 @@ class AnalyticsSummary(BaseModel):
     most_common_symptoms: List[str] = []
     highest_pain_recorded: Optional[int] = None
     lowest_pain_recorded: Optional[int] = None
+
+
+class LocationHeatmapResponse(BaseModel):
+    granularity: str
+    location_averages: Dict[str, float]  # location_name -> average_pain (0-10)
+    total_logs: int

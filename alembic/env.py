@@ -13,6 +13,7 @@ from app.core.database import Base
 
 # Import all models so Alembic can detect them
 from app.models import User, PainLog, ChatSession, ChatMessage, TriageAssessment  # noqa
+from app.models.wellness import FoodLog, WaterLog, SleepLog, PainVideoAnalysis  # noqa
 
 config = context.config
 

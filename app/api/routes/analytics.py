@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
-from typing import List
+from typing import List, Dict
 from collections import Counter
 from datetime import datetime, timedelta
 
@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.pain_log import PainLog
-from app.schemas.analytics import TrendsResponse, TrendDataPoint, AnalyticsSummary
+from app.schemas.analytics import TrendsResponse, TrendDataPoint, AnalyticsSummary, LocationHeatmapResponse
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -93,4 +93,52 @@ def get_summary(
         most_common_symptoms=most_common_symptoms,
         highest_pain_recorded=max(pain_levels),
         lowest_pain_recorded=min(pain_levels),
+    )
+
+
+@router.get("/location-heatmap/", response_model=LocationHeatmapResponse)
+def get_location_heatmap(
+    granularity: str = Query("day", regex="^(day|week|month)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return average pain intensity per body location for the selected time window."""
+    now = datetime.utcnow()
+    if granularity == "day":
+        cutoff = now - timedelta(days=1)
+    elif granularity == "week":
+        cutoff = now - timedelta(weeks=1)
+    else:  # month
+        cutoff = now - timedelta(days=30)
+
+    logs = (
+        db.query(PainLog)
+        .filter(
+            PainLog.user_id == current_user.id,
+            PainLog.timestamp >= cutoff,
+        )
+        .all()
+    )
+
+    # Accumulate pain levels per location
+    location_data: Dict[str, List[int]] = {}
+    for log in logs:
+        locations = log.pain_locations or []
+        if not locations:
+            locations = [log.pain_location] if log.pain_location else []
+        for loc in locations:
+            if loc not in location_data:
+                location_data[loc] = []
+            location_data[loc].append(log.pain_level)
+
+    # Build result: location -> average pain
+    result: Dict[str, float] = {
+        loc: round(sum(levels) / len(levels), 2)
+        for loc, levels in location_data.items()
+    }
+
+    return LocationHeatmapResponse(
+        granularity=granularity,
+        location_averages=result,
+        total_logs=len(logs),
     )
