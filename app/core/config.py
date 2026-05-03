@@ -17,17 +17,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
 
-    # AI Service (Claude API - per Main Prompt.txt)
-    CLAUDE_API_KEY: Optional[str] = None
-    CLAUDE_MODEL: str = "claude-3-5-haiku-20241022"
-    
-    # Legacy OpenAI-compatible support (optional fallback)
-    OPENAI_API_KEY: Optional[str] = None
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    AI_MODEL: str = "gpt-4.1-mini"  # fallback if Claude not configured
+    # AI Service (Groq — free, OpenAI-compatible, Llama 3)
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    GROQ_MODEL: str = "llama3-70b-8192"
 
     # CORS (for Flutter mobile app)
-    CORS_ORIGINS: List[str] = ["http://localhost", "http://127.0.0.1", "http://10.0.2.2"]
+    # Set CORS_ORIGINS env var as a JSON array, e.g.: '["https://example.com"]'
+    # Use ["*"] to allow all origins (default for mobile/dev)
+    CORS_ORIGINS: List[str] = ["*"]
 
     # Pydantic v2 config
     model_config = ConfigDict(

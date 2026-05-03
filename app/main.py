@@ -13,10 +13,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS — allow all origins for mobile clients
+# CORS — driven by CORS_ORIGINS env var; "*" in the list means allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"] if "*" in settings.CORS_ORIGINS else settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

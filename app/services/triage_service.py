@@ -73,7 +73,7 @@ FALLBACK_RESPONSE: dict[str, str] = {
     "model_used": "fallback",
 }
 
-# ── Lazy OpenAI client singleton ──────────────────────────────────────────────
+# ── Lazy Groq client singleton (OpenAI-compatible) ───────────────────────────
 
 _client: openai.OpenAI | None = None
 
@@ -82,8 +82,8 @@ def _get_client() -> openai.OpenAI:
     global _client
     if _client is None:
         _client = openai.OpenAI(
-            api_key=settings.OPENAI_API_KEY or "not-set",
-            base_url=settings.OPENAI_BASE_URL,
+            api_key=settings.GROQ_API_KEY or "not-set",
+            base_url=settings.GROQ_BASE_URL,
         )
     return _client
 
@@ -151,7 +151,7 @@ def _call_ai(prompt: str, request_id: str) -> dict:
     t0 = time.monotonic()
 
     response = client.chat.completions.create(
-        model=settings.AI_MODEL,
+        model=settings.GROQ_MODEL,
         max_tokens=512,
         timeout=_TIMEOUT_SECONDS,
         messages=[
@@ -208,7 +208,7 @@ def triage_with_ai(pain_data: dict) -> dict:
     for attempt in range(_MAX_RETRIES + 1):
         try:
             result = _call_ai(prompt, request_id)
-            result["model_used"] = settings.AI_MODEL
+            result["model_used"] = settings.GROQ_MODEL
             return result
 
         except APITimeoutError as exc:
