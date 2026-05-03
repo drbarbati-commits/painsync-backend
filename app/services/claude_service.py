@@ -10,10 +10,10 @@ from openai import OpenAI
 from app.core.config import settings
 
 # ── Client setup ──────────────────────────────────────────────────────────────
-# Use OPENAI_API_KEY env var if set, otherwise fall back to the sandbox key.
-_api_key = settings.OPENAI_API_KEY or os.environ.get("OPENAI_API_KEY", "")
-_base_url = settings.OPENAI_BASE_URL  # defaults to https://api.openai.com/v1
-_model = settings.AI_MODEL            # defaults to gemini-2.5-flash
+# Uses Groq API (free, OpenAI-compatible) via GROQ_API_KEY env var.
+_api_key = settings.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "not-set")
+_base_url = settings.GROQ_BASE_URL   # https://api.groq.com/openai/v1
+_model = settings.GROQ_MODEL         # llama3-70b-8192
 
 client = OpenAI(api_key=_api_key, base_url=_base_url)
 
