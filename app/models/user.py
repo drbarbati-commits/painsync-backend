@@ -29,6 +29,9 @@ class User(Base):
     unit_temperature = Column(String(10), nullable=True, default='celsius')
     unit_volume = Column(String(10), nullable=True, default='ml')
     avatar_url = Column(String(2048), nullable=True)
+    # Push notifications
+    device_token = Column(String(512), nullable=True)
+    device_platform = Column(String(10), nullable=True)
     # Subscription / trial
     trial_started_at = Column(DateTime(timezone=True), nullable=True)
     subscription_status = Column(String(50), nullable=True, default='trial')

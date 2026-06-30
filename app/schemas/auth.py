@@ -116,6 +116,11 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = Field(None, max_length=2048)
 
 
+class DeviceTokenRequest(BaseModel):
+    token: str
+    platform: str = Field(..., pattern=r"^(ios|android)$")
+
+
 class MedicalProfileUpdate(BaseModel):
     medical_history: Optional[str] = None
     medications: Optional[str] = None

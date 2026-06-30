@@ -4,7 +4,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.auth import UserResponse, UserUpdate, MedicalProfileUpdate
+from app.schemas.auth import (
+    UserResponse,
+    UserUpdate,
+    MedicalProfileUpdate,
+    DeviceTokenRequest,
+)
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -74,6 +79,17 @@ def update_medical_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/me/device-token", status_code=status.HTTP_204_NO_CONTENT)
+def register_device_token(
+    payload: DeviceTokenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.device_token = payload.token
+    current_user.device_platform = payload.platform
+    db.commit()
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
