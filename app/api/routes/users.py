@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.auth import UserResponse, UserUpdate
+from app.schemas.auth import UserResponse, UserUpdate, MedicalProfileUpdate
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -20,7 +20,6 @@ def update_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Basic fields
     if payload.name is not None:
         current_user.name = payload.name
     if payload.age is not None:
@@ -29,7 +28,6 @@ def update_profile(
         current_user.gender = payload.gender
     if payload.medical_history is not None:
         current_user.medical_history = payload.medical_history
-    # Extended profile fields
     if payload.phone is not None:
         current_user.phone = payload.phone
     if payload.weight_kg is not None:
@@ -50,6 +48,29 @@ def update_profile(
         current_user.unit_volume = payload.unit_volume
     if payload.avatar_url is not None:
         current_user.avatar_url = payload.avatar_url
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.put("/me/medical-profile", response_model=UserResponse)
+def update_medical_profile(
+    payload: MedicalProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.medical_history is not None:
+        current_user.medical_history = payload.medical_history
+    if payload.medications is not None:
+        current_user.medications = payload.medications
+    if payload.allergies is not None:
+        current_user.allergies = payload.allergies
+    if payload.primary_condition is not None:
+        current_user.primary_condition = payload.primary_condition
+    if payload.pain_duration_years is not None:
+        current_user.pain_duration_years = payload.pain_duration_years
+    if payload.pain_areas is not None:
+        current_user.pain_areas = payload.pain_areas
     db.commit()
     db.refresh(current_user)
     return current_user

@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from __future__ import annotations
+
 from typing import List
 
-from app.core.database import get_db
-from app.core.deps import get_current_user
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import StreamingResponse
+
+from app.core.database import get_async_db
+from app.core.deps import get_async_current_user
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage, MessageRole
 from app.schemas.chat import (
@@ -13,42 +18,45 @@ from app.schemas.chat import (
     ChatSessionResponse,
     ChatSessionSummary,
 )
-from app.services.claude_service import chat_with_ai
+from app.services.chat_service import assemble_context, generate_stream
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
 @router.post("/sessions", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED)
-def create_session(
+async def create_session(
     payload: ChatSessionCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_async_current_user),
 ):
     session = ChatSession(
         user_id=current_user.id,
         title=payload.title or "New Conversation",
     )
     db.add(session)
-    db.commit()
-    db.refresh(session)
+    await db.commit()
+    await db.refresh(session)
     return session
 
 
 @router.get("/sessions", response_model=List[ChatSessionSummary])
-def list_sessions(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+async def list_sessions(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_async_current_user),
 ):
-    sessions = (
-        db.query(ChatSession)
-        .filter(ChatSession.user_id == current_user.id)
+    result = await db.execute(
+        select(ChatSession)
+        .where(ChatSession.user_id == current_user.id)
         .order_by(ChatSession.updated_at.desc())
-        .all()
     )
-    result = []
+    sessions = result.scalars().all()
+    summaries = []
     for s in sessions:
-        msg_count = db.query(ChatMessage).filter(ChatMessage.session_id == s.id).count()
-        result.append(
+        count_result = await db.execute(
+            select(func.count(ChatMessage.id)).where(ChatMessage.session_id == s.id)
+        )
+        msg_count = count_result.scalar() or 0
+        summaries.append(
             ChatSessionSummary(
                 id=s.id,
                 user_id=s.user_id,
@@ -58,20 +66,22 @@ def list_sessions(
                 message_count=msg_count,
             )
         )
-    return result
+    return summaries
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
-def get_session(
+async def get_session(
     session_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_async_current_user),
 ):
-    session = (
-        db.query(ChatSession)
-        .filter(ChatSession.id == session_id, ChatSession.user_id == current_user.id)
-        .first()
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id,
+        )
     )
+    session = result.scalars().first()
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -81,101 +91,148 @@ def get_session(
 
 
 @router.post("/sessions/{session_id}/messages", response_model=ChatMessageResponse)
-def send_message(
+async def send_message(
     session_id: int,
     payload: ChatMessageCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_async_current_user),
 ):
-    session = (
-        db.query(ChatSession)
-        .filter(ChatSession.id == session_id, ChatSession.user_id == current_user.id)
-        .first()
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id,
+        )
     )
+    session = result.scalars().first()
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Chat session not found",
         )
 
-    # Save user message
     user_msg = ChatMessage(
         session_id=session_id,
         role=MessageRole.user,
         content=payload.content,
     )
     db.add(user_msg)
-    db.commit()
-    db.refresh(user_msg)
+    await db.commit()
+    await db.refresh(user_msg)
 
-    # Build conversation history
-    history = (
-        db.query(ChatMessage)
+    history_result = await db.execute(
+        select(ChatMessage)
         .filter(ChatMessage.session_id == session_id)
         .order_by(ChatMessage.created_at.asc())
-        .all()
     )
+    history = history_result.scalars().all()
     messages = [{"role": m.role.value, "content": m.content} for m in history]
 
-    # Build personalised system context
-    user_context_parts = [f"Patient name: {current_user.name}"]
-    if current_user.age:
-        user_context_parts.append(f"Age: {current_user.age}")
-    if current_user.gender:
-        user_context_parts.append(f"Gender: {current_user.gender}")
-    if current_user.medical_history:
-        user_context_parts.append(f"Medical history: {current_user.medical_history}")
-    user_context = ". ".join(user_context_parts) + "."
+    system = await assemble_context(current_user, db)
 
-    system_override = (
-        "You are PainSync AI, an empathetic chronic pain management assistant. "
-        "Be warm, supportive, and medically accurate. Never diagnose or prescribe. "
-        "Always recommend consulting a healthcare professional for medical decisions. "
-        "If the user describes emergency symptoms, advise calling emergency services immediately. "
-        f"Patient context: {user_context}"
-    )
-
-    # Get AI response
     try:
-        ai_response = chat_with_ai(messages, system=system_override)
+        stream = generate_stream(messages, system=system)
+        full_response = ""
+        async for chunk in stream:
+            full_response += chunk
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI service temporarily unavailable: {str(e)}",
+            detail=f"AI service temporarily unavailable: {e}",
         )
 
-    # Save assistant message
     assistant_msg = ChatMessage(
         session_id=session_id,
         role=MessageRole.assistant,
-        content=ai_response,
+        content=full_response,
     )
     db.add(assistant_msg)
 
-    # Update session title from first user message if still default
     if session.title == "New Conversation" and len(history) == 1:
         session.title = payload.content[:80] + ("..." if len(payload.content) > 80 else "")
 
-    db.commit()
-    db.refresh(assistant_msg)
+    await db.commit()
+    await db.refresh(assistant_msg)
     return assistant_msg
 
 
-@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_session(
+@router.post("/sessions/{session_id}/messages/stream")
+async def send_message_stream(
     session_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    payload: ChatMessageCreate,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_async_current_user),
 ):
-    session = (
-        db.query(ChatSession)
-        .filter(ChatSession.id == session_id, ChatSession.user_id == current_user.id)
-        .first()
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id,
+        )
     )
+    session = result.scalars().first()
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Chat session not found",
         )
-    db.delete(session)
-    db.commit()
+
+    user_msg = ChatMessage(
+        session_id=session_id,
+        role=MessageRole.user,
+        content=payload.content,
+    )
+    db.add(user_msg)
+    await db.commit()
+    await db.refresh(user_msg)
+
+    history_result = await db.execute(
+        select(ChatMessage)
+        .filter(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at.asc())
+    )
+    history = history_result.scalars().all()
+    messages = [{"role": m.role.value, "content": m.content} for m in history]
+
+    system = await assemble_context(current_user, db)
+
+    async def event_stream():
+        try:
+            async for chunk in generate_stream(messages, system=system):
+                yield f"data: {chunk}\n\n"
+                if chunk is None:
+                    break
+        except Exception:
+            yield f"data: [DONE]\n\n"
+            return
+        yield "data: [DONE]\n\n"
+
+    if session.title == "New Conversation" and len(history) == 1:
+        session.title = payload.content[:80] + ("..." if len(payload.content) > 80 else "")
+    await db.commit()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_async_current_user),
+):
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id,
+        )
+    )
+    session = result.scalars().first()
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat session not found",
+        )
+    await db.delete(session)
+    await db.commit()

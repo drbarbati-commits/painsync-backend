@@ -90,11 +90,11 @@ class TestTriageWithAiSuccess:
         assert result["urgency"] == "urgent"
 
     def test_model_used_reflects_settings(self, mocker) -> None:
-        """model_used is populated from settings.AI_MODEL, not from the AI response."""
+        """model_used is populated from settings.GROQ_MODEL, not from the AI response."""
         _mock_client(mocker, json.dumps(_VALID_AI_JSON))
         result = triage_with_ai(_VALID_PAIN_DATA)
         from app.core.config import settings
-        assert result["model_used"] == settings.AI_MODEL
+        assert result["model_used"] == settings.GROQ_MODEL
 
     def test_all_three_urgency_values_are_accepted(self, mocker) -> None:
         """emergency, urgent, and routine are all valid urgency values."""

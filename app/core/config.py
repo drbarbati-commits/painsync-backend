@@ -16,11 +16,19 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 20160  # 14 days
 
     # AI Service (Groq — free, OpenAI-compatible, Llama 3)
     GROQ_API_KEY: Optional[str] = None
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
+
+    # Gemini Vision API (for food / video analysis)
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    # Sentry
+    SENTRY_DSN: Optional[str] = None
 
     # CORS (for Flutter mobile app)
     # Set CORS_ORIGINS env var as a JSON array, e.g.: '["https://example.com"]'

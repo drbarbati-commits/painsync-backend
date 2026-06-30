@@ -17,7 +17,54 @@ class UserLogin(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class RefreshResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class LogoutRequest(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+
+
+class LogoutResponse(BaseModel):
+    message: str = "Successfully logged out"
+
+
+class PhoneSendRequest(BaseModel):
+    phone: str = Field(
+        ...,
+        pattern=r"^\+[1-9]\d{6,14}$",
+        description="Phone number in E.164 format (e.g. +491234567890)",
+    )
+
+
+class PhoneSendResponse(BaseModel):
+    message: str
+
+
+class PhoneVerifyRequest(BaseModel):
+    phone: str = Field(
+        ...,
+        pattern=r"^\+[1-9]\d{6,14}$",
+    )
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
+class PhoneVerifyResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: "UserResponse"
 
 
 class UserResponse(BaseModel):
@@ -27,9 +74,13 @@ class UserResponse(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
     medical_history: Optional[str] = None
+    medications: Optional[str] = None
+    allergies: Optional[str] = None
+    primary_condition: Optional[str] = None
+    pain_duration_years: Optional[float] = None
+    pain_areas: Optional[str] = None
     is_active: bool
     created_at: datetime
-    # Extended profile fields
     phone: Optional[str] = None
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
@@ -40,7 +91,6 @@ class UserResponse(BaseModel):
     unit_temperature: Optional[str] = None
     unit_volume: Optional[str] = None
     avatar_url: Optional[str] = None
-    # Subscription
     subscription_status: Optional[str] = None
     trial_started_at: Optional[datetime] = None
     subscription_expires_at: Optional[datetime] = None
@@ -54,7 +104,6 @@ class UserUpdate(BaseModel):
     age: Optional[int] = Field(None, ge=0, le=150)
     gender: Optional[str] = Field(None, max_length=50)
     medical_history: Optional[str] = None
-    # Extended profile fields
     phone: Optional[str] = Field(None, max_length=50)
     weight_kg: Optional[float] = Field(None, ge=0, le=500)
     height_cm: Optional[float] = Field(None, ge=0, le=300)
@@ -65,3 +114,12 @@ class UserUpdate(BaseModel):
     unit_temperature: Optional[str] = Field(None, max_length=20)
     unit_volume: Optional[str] = Field(None, max_length=10)
     avatar_url: Optional[str] = Field(None, max_length=2048)
+
+
+class MedicalProfileUpdate(BaseModel):
+    medical_history: Optional[str] = None
+    medications: Optional[str] = None
+    allergies: Optional[str] = None
+    primary_condition: Optional[str] = Field(None, max_length=255)
+    pain_duration_years: Optional[float] = Field(None, ge=0)
+    pain_areas: Optional[str] = None
