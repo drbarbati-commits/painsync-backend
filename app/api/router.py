@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import auth, pain_log, chat, triage, users, analytics, wellness, activity_log, upload, social_auth, food_logs, pain_videos
+from app.api.routes import auth, pain_log, chat, triage, users, analytics, wellness, activity_log, upload, social_auth, food_logs, pain_videos, export
 
 api_router = APIRouter()
 
@@ -15,3 +15,4 @@ api_router.include_router(upload.router)
 api_router.include_router(social_auth.router)
 api_router.include_router(food_logs.router)
 api_router.include_router(pain_videos.router)
+api_router.include_router(export.router)
