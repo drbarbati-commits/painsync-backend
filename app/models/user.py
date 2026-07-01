@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -19,7 +19,7 @@ class User(Base):
     allergies = Column(Text, nullable=True)
     primary_condition = Column(String(255), nullable=True)
     pain_duration_years = Column(Float, nullable=True)
-    pain_areas = Column(Text, nullable=True)
+    pain_areas = Column(ARRAY(Text), nullable=True)
     weight_kg = Column(Float, nullable=True)
     height_cm = Column(Float, nullable=True)
     language = Column(String(10), nullable=True, default='en')
