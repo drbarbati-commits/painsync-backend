@@ -34,7 +34,7 @@ class User(Base):
     device_platform = Column(String(10), nullable=True)
     # Subscription / trial
     trial_started_at = Column(DateTime(timezone=True), nullable=True)
-    subscription_status = Column(String(50), nullable=True, default='trial')
+    subscription_status = Column(String(50), nullable=True, default='none')
     subscription_expires_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
