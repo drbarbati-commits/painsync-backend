@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import AsyncGenerator, Generator
+from urllib.parse import parse_qs, urlencode, urlparse
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
@@ -41,10 +42,22 @@ _ASYNC_ENGINE = None
 _ASYNC_SESSION_LOCAL = None
 
 
+def _fix_asyncpg_ssl(url: str) -> str:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    if "sslmode" in query:
+        sslmode = query.pop("sslmode")[0]
+        if sslmode in ("require", "verify-ca", "verify-full"):
+            query["ssl"] = ["require"]
+    new_query = urlencode(query, doseq=True)
+    return parsed._replace(query=new_query).geturl()
+
+
 def _get_async_engine():
     global _ASYNC_ENGINE
     if _ASYNC_ENGINE is None:
         url = settings.DATABASE_URL
+        url = _fix_asyncpg_ssl(url)
         # Convert sync driver to async driver
         _ASYNC_ENGINE = create_async_engine(
             url.replace("postgresql://", "postgresql+asyncpg://")
