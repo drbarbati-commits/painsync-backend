@@ -70,6 +70,7 @@ def _patch_array_columns() -> None:
         PainLog.__table__.c.pain_locations,
         PainLog.__table__.c.symptoms,
         TriageAssessment.__table__.c.symptoms,
+        User.__table__.c.pain_areas,
     ):
         col.type = _JsonList()
 
