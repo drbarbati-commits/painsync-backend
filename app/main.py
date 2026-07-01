@@ -7,7 +7,7 @@ import uuid
 
 import sentry_sdk
 from fastapi import FastAPI, Request
-from sentry_sdk.integrations.fastapi import FastAPIIntegration
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 
 sentry_sdk.init(
     dsn=settings.SENTRY_DSN,
-    integrations=[FastAPIIntegration()],
+    integrations=[FastApiIntegration()],
     traces_sample_rate=0.2,
     send_default_pii=False,
 )
