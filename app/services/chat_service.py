@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator, List
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,14 +19,14 @@ from app.models.wellness import FoodLog, WaterLog, SleepLog
 
 logger = logging.getLogger(__name__)
 
-_client: OpenAI | None = None
+_client: AsyncOpenAI | None = None
 
 
-def _get_client() -> OpenAI:
+def _get_client() -> AsyncOpenAI:
     global _client
     if _client is None:
         api_key = settings.GROQ_API_KEY or "not-set"
-        _client = OpenAI(api_key=api_key, base_url=settings.GROQ_BASE_URL)
+        _client = AsyncOpenAI(api_key=api_key, base_url=settings.GROQ_BASE_URL)
     return _client
 
 
@@ -145,6 +145,7 @@ async def generate_stream(
     """Generate a streaming chat completion.
 
     Yields content chunks as they arrive from the API.
+    Uses AsyncOpenAI so iteration does not block the event loop.
     """
     client = _get_client()
     openai_messages = [{"role": "system", "content": system}]
@@ -158,7 +159,7 @@ async def generate_stream(
         stream=True,
     )
 
-    for chunk in stream:
+    async for chunk in stream:
         delta = chunk.choices[0].delta if chunk.choices else None
         content = delta.content if delta else None
         if content:

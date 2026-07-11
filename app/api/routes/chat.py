@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from fastapi.responses import StreamingResponse
 
 from app.core.database import get_async_db
@@ -36,6 +37,14 @@ async def create_session(
     db.add(session)
     await db.commit()
     await db.refresh(session)
+    # Eager-load messages so Pydantic serialization doesn't trigger
+    # async lazy load outside greenlet context.
+    result = await db.execute(
+        select(ChatSession)
+        .where(ChatSession.id == session.id)
+        .options(selectinload(ChatSession.messages))
+    )
+    session = result.scalars().first()
     return session
 
 
@@ -76,10 +85,12 @@ async def get_session(
     current_user: User = Depends(get_async_current_user),
 ):
     result = await db.execute(
-        select(ChatSession).where(
+        select(ChatSession)
+        .where(
             ChatSession.id == session_id,
             ChatSession.user_id == current_user.id,
         )
+        .options(selectinload(ChatSession.messages))
     )
     session = result.scalars().first()
     if not session:
@@ -98,10 +109,12 @@ async def send_message(
     current_user: User = Depends(get_async_current_user),
 ):
     result = await db.execute(
-        select(ChatSession).where(
+        select(ChatSession)
+        .where(
             ChatSession.id == session_id,
             ChatSession.user_id == current_user.id,
         )
+        .options(selectinload(ChatSession.messages))
     )
     session = result.scalars().first()
     if not session:
@@ -130,9 +143,8 @@ async def send_message(
     system = await assemble_context(current_user, db)
 
     try:
-        stream = generate_stream(messages, system=system)
         full_response = ""
-        async for chunk in stream:
+        async for chunk in generate_stream(messages, system=system):
             full_response += chunk
     except Exception as e:
         raise HTTPException(
@@ -163,10 +175,12 @@ async def send_message_stream(
     current_user: User = Depends(get_async_current_user),
 ):
     result = await db.execute(
-        select(ChatSession).where(
+        select(ChatSession)
+        .where(
             ChatSession.id == session_id,
             ChatSession.user_id == current_user.id,
         )
+        .options(selectinload(ChatSession.messages))
     )
     session = result.scalars().first()
     if not session:
@@ -198,8 +212,6 @@ async def send_message_stream(
         try:
             async for chunk in generate_stream(messages, system=system):
                 yield f"data: {chunk}\n\n"
-                if chunk is None:
-                    break
         except Exception:
             yield f"data: [DONE]\n\n"
             return
