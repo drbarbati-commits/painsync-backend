@@ -152,7 +152,7 @@ async def generate_stream(
     for m in messages:
         openai_messages.append({"role": m["role"], "content": m["content"]})
 
-    stream = client.chat.completions.create(
+    stream = await client.chat.completions.create(
         model=settings.GROQ_MODEL,
         max_tokens=1024,
         messages=openai_messages,
