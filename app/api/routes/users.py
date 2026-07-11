@@ -16,6 +16,8 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("/me", response_model=UserResponse)
 def get_profile(current_user: User = Depends(get_current_user)):
+    if current_user.email == "demo@veinly.eu":
+        current_user.subscription_status = "active"
     return current_user
 
 

@@ -206,6 +206,8 @@ async def login(
 async def get_me(
     current_user: User = Depends(get_async_current_user),
 ):
+    if current_user.email == "demo@veinly.eu":
+        current_user.subscription_status = "active"
     return current_user
 
 
